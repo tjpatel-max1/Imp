@@ -1447,14 +1447,26 @@ class BackupBotFinalV2:
                         await asyncio.sleep(0.3)
                         continue
 
-                # caption/text
+                # ✅ extract caption properly (handles html + reply + quotes)
                 caption = extract_src_caption(msg)
-                try:
-                    caption = (getattr(msg, "caption", None) or getattr(msg, "text", None) or "")
-                    if caption is None:
+
+                # 🔥 fallback if still empty (important for reply/quoted messages)
+                if not caption or not str(caption).strip():
+                    try:
+                        if msg.reply_to_message:
+                            caption = (
+                                msg.reply_to_message.caption
+                                or msg.reply_to_message.text
+                                or ""
+                            )
+                    except Exception:
                         caption = ""
-                except Exception:
-                    caption = ""
+
+                # 🔥 remove underline formatting only
+                caption = remove_underline_only(caption)
+
+                # ✅ apply your filters
+                caption = apply_filters(caption, self.filters)
 
                 
                 # apply dynamic filters to caption (and later to filename)
@@ -1474,13 +1486,6 @@ class BackupBotFinalV2:
                 if not filename_hint:
                     filename_hint = f"{abs(chat_info.get('id'))}_{mid}"
 
-                # apply dynamic filters to filename_hint
-                try:
-                    filename_hint = apply_filters(filename_hint or "", self.filters)
-                except Exception as e:
-                    dlog("apply_filters filename failed:", e)
-                # attempt downloads with fallbacks
-                
                 # Auto-forward if allowed (hide sender) - skip download logic
                 try:
                     if hasattr(msg, "has_protected_content") and not msg.has_protected_content:
