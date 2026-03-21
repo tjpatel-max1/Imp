@@ -10,6 +10,7 @@ Final RAW backup bot v2 (patched)
 # ================= FLOODWAIT SAFE EDIT HELPER =================
 from pyrogram.errors import FloodWait
 import random
+import re
 
 async def safe_edit_message(app, chat_id: int, msg_id: int, text: str) -> bool:
     """
@@ -533,21 +534,25 @@ def save_filters(filters: dict):
     except Exception as e:
         dlog("save_filters failed:", e)
 
+
 def apply_filters(text: str, filters: dict) -> str:
-    if text is None:
+    if not text:
         return ""
+
     out = str(text)
-    # sort keys by length desc to avoid partial overlapping replacements
-    for bad in sorted(filters.keys(), key=lambda s: -len(s)):
-        rep = filters.get(bad, "")
+
+    for bad, rep in filters.items():
         try:
-            pattern = re.compile(re.escape(bad), re.IGNORECASE)
+            # 🔥 Match word EVEN if wrapped in HTML like <u>, <b>, etc.
+            pattern = re.compile(
+                rf"(?:<[^>]+>)*{re.escape(bad)}(?:<[^>]+>)*",
+                re.IGNORECASE
+            )
             out = pattern.sub(rep, out)
         except Exception:
-            try:
-                out = out.replace(bad, rep)
-            except Exception:
-                dlog("apply_filters replace error for", bad)
+            # fallback
+            out = out.replace(bad, rep)
+
     return out
 
 # ensure filters.json exists
