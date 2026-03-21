@@ -512,6 +512,14 @@ def extract_src_caption(msg):
         except Exception:
             return ""
 
+def remove_underline_only(text: str) -> str:
+    if not text:
+        return ""
+
+    # remove only <u> tags (keep other html intact)
+    text = re.sub(r"</?u>", "", text, flags=re.IGNORECASE)
+
+    return text
 # ---------- dynamic filters helpers ----------
 FILTERS_FILE = "filters.json"
 
@@ -536,25 +544,23 @@ def save_filters(filters: dict):
 
 
 def apply_filters(text: str, filters: dict) -> str:
-    if not text:
+    if text is None:
         return ""
 
     out = str(text)
 
-    for bad, rep in filters.items():
+    # sort keys to avoid partial overlap issues
+    for bad in sorted(filters.keys(), key=lambda s: -len(s)):
+        rep = filters.get(bad, "")
         try:
-            # 🔥 Match word EVEN if wrapped in HTML like <u>, <b>, etc.
-            pattern = re.compile(
-                rf"(?:<[^>]+>)*{re.escape(bad)}(?:<[^>]+>)*",
-                re.IGNORECASE
-            )
+            # simple case-insensitive replace
+            pattern = re.compile(re.escape(bad), re.IGNORECASE)
             out = pattern.sub(rep, out)
         except Exception:
-            # fallback
             out = out.replace(bad, rep)
 
     return out
-
+ 
 # ensure filters.json exists
 try:
     if not os.path.exists(FILTERS_FILE):
